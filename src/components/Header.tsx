@@ -1,4 +1,10 @@
-export default function Header({ onReset }: { onReset?: () => void }) {
+export default function Header({
+  onReset,
+  onHistory,
+}: {
+  onReset?: () => void;
+  onHistory: () => void;
+}) {
   return (
     <div
       style={{
@@ -51,7 +57,7 @@ export default function Header({ onReset }: { onReset?: () => void }) {
           </span>
         </div>
       </div>
-      <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+      <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
         {onReset && (
           <button
             onClick={onReset}
@@ -69,6 +75,26 @@ export default function Header({ onReset }: { onReset?: () => void }) {
             ← New scan
           </button>
         )}
+        <button
+          onClick={onHistory}
+          title="Scan history"
+          style={{
+            background: "rgba(255,255,255,0.04)",
+            border: "1px solid rgba(255,255,255,0.06)",
+            borderRadius: 6,
+            width: 28,
+            height: 28,
+            color: "#8888aa",
+            cursor: "pointer",
+            fontSize: 14,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            fontFamily: "inherit",
+          }}
+        >
+          📊
+        </button>
         <div
           style={{
             width: 8,

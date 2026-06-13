@@ -4,6 +4,7 @@ import ScanButton from "../components/ScanButton";
 import IssueList from "../components/IssueList";
 import ScoreRing from "../components/ScoreRing";
 import SimulationBar from "../components/SimulationBar";
+import HistoryPanel, { saveScanToHistory } from "../components/HistoryPanel";
 import type { ScanResult } from "../types";
 
 type View = "home" | "scanning" | "results" | "error";
@@ -14,22 +15,20 @@ export default function App() {
   const [errorMsg, setErrorMsg] = useState("");
   const [activeTab, setActiveTab] = useState<"issues" | "fixed">("issues");
   const [tabId, setTabId] = useState<number>(0);
+  const [showHistory, setShowHistory] = useState(false);
 
   const handleScan = async () => {
     setView("scanning");
     setErrorMsg("");
-
     const [tab] = await chrome.tabs.query({
       active: true,
       currentWindow: true,
     });
-
     if (!tab.id) {
       setErrorMsg("No active tab found.");
       setView("error");
       return;
     }
-
     if (
       tab.url?.startsWith("chrome://") ||
       tab.url?.startsWith("chrome-extension://") ||
@@ -41,23 +40,31 @@ export default function App() {
       setView("error");
       return;
     }
-
     setTabId(tab.id);
-
     try {
       await chrome.scripting.executeScript({
         target: { tabId: tab.id },
         files: ["axe.min.js"],
       });
-
       const [scanResult] = await chrome.scripting.executeScript({
         target: { tabId: tab.id },
         func: runAxeScan,
       });
-
       if (scanResult?.result) {
-        setResult(scanResult.result as ScanResult);
+        const res = scanResult.result as ScanResult;
+        setResult(res);
         setView("results");
+        const score = Math.max(
+          0,
+          Math.round(100 - res.violations.length * 3.5),
+        );
+        await saveScanToHistory(
+          tab.url ?? "",
+          tab.title ?? "",
+          score,
+          res.violations.length,
+          res.passes.length,
+        );
       } else {
         setErrorMsg(
           "Scan returned no results.\nTry refreshing the page and scanning again.",
@@ -84,7 +91,11 @@ export default function App() {
     <div
       style={{ display: "flex", flexDirection: "column", minHeight: "560px" }}
     >
-      <Header onReset={view !== "home" ? handleReset : undefined} />
+      {showHistory && <HistoryPanel onClose={() => setShowHistory(false)} />}
+      <Header
+        onReset={view !== "home" ? handleReset : undefined}
+        onHistory={() => setShowHistory(true)}
+      />
       {view === "home" && <HomeView onScan={handleScan} />}
       {view === "scanning" && <ScanningView />}
       {view === "error" && (
@@ -102,7 +113,6 @@ export default function App() {
   );
 }
 
-// ─── Home View ────────────────────────────────────────────────
 function HomeView({ onScan }: { onScan: () => void }) {
   return (
     <div
@@ -194,14 +204,12 @@ function HomeView({ onScan }: { onScan: () => void }) {
   );
 }
 
-// ─── Scanning View ────────────────────────────────────────────
 function ScanningView() {
   const [tick, setTick] = useState(0);
   React.useEffect(() => {
     const id = setInterval(() => setTick((t) => t + 1), 500);
     return () => clearInterval(id);
   }, []);
-
   const messages = [
     "Loading axe-core engine...",
     "Checking color contrast ratios...",
@@ -210,7 +218,6 @@ function ScanningView() {
     "Analyzing form elements...",
     "Verifying image alt text...",
   ];
-
   return (
     <div
       style={{
@@ -223,10 +230,7 @@ function ScanningView() {
         gap: 20,
       }}
     >
-      <style>{`
-        @keyframes spin   { to { transform: rotate(360deg); } }
-        @keyframes fadeUp { from { opacity:0; transform:translateY(6px); } to { opacity:1; transform:translateY(0); } }
-      `}</style>
+      <style>{`@keyframes spin{to{transform:rotate(360deg)}}@keyframes fadeUp{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}`}</style>
       <div style={{ position: "relative", width: 72, height: 72 }}>
         <div
           style={{
@@ -307,7 +311,6 @@ function ScanningView() {
   );
 }
 
-// ─── Error View ───────────────────────────────────────────────
 function ErrorView({
   message,
   onRetry,
@@ -370,7 +373,6 @@ function ErrorView({
   );
 }
 
-// ─── Results View ─────────────────────────────────────────────
 function ResultsView({
   result,
   activeTab,
@@ -383,7 +385,6 @@ function ResultsView({
   tabId: number;
 }) {
   const score = Math.max(0, Math.round(100 - result.violations.length * 3.5));
-
   return (
     <div
       style={{
@@ -418,7 +419,6 @@ function ResultsView({
           </div>
         </div>
       </div>
-
       <div
         style={{
           display: "flex",
@@ -453,7 +453,6 @@ function ResultsView({
           </button>
         ))}
       </div>
-
       <div style={{ flex: 1, overflowY: "auto" }}>
         <IssueList
           items={activeTab === "issues" ? result.violations : result.passes}
@@ -493,7 +492,6 @@ function Pill({
   );
 }
 
-// ─── Runs INSIDE the webpage — no React, no imports ──────────
 function runAxeScan() {
   return (window as any).axe.run().then((results: any) => ({
     violations: results.violations.map((v: any) => ({
