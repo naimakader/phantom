@@ -5,6 +5,7 @@ import IssueList from "../components/IssueList";
 import ScoreRing from "../components/ScoreRing";
 import SimulationBar from "../components/SimulationBar";
 import HistoryPanel, { saveScanToHistory } from "../components/HistoryPanel";
+import HighlightToggle from "../components/HighlightToggle";
 import type { ScanResult } from "../types";
 
 type View = "home" | "scanning" | "results" | "error";
@@ -394,6 +395,7 @@ function ResultsView({
         overflow: "hidden",
       }}
     >
+      {/* Score */}
       <div
         style={{
           padding: "16px 20px",
@@ -419,6 +421,11 @@ function ResultsView({
           </div>
         </div>
       </div>
+
+      {/* 🔴 Highlight button — the new feature */}
+      <HighlightToggle violations={result.violations} tabId={tabId} />
+
+      {/* Tabs */}
       <div
         style={{
           display: "flex",
@@ -453,6 +460,8 @@ function ResultsView({
           </button>
         ))}
       </div>
+
+      {/* Issue list */}
       <div style={{ flex: 1, overflowY: "auto" }}>
         <IssueList
           items={activeTab === "issues" ? result.violations : result.passes}
