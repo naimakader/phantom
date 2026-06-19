@@ -12,6 +12,7 @@
   "dependencies": {
     "axe-core": "^4.11.4",
     "diff2html": "^3.4.56",
+    "jspdf": "^4.2.1",
     "react": "^19.2.6",
     "react-dom": "^19.2.6"
   },
